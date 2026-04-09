@@ -6,6 +6,9 @@ set -eox pipefail
 # 127.0.0.1 usage is intentional for testing local FDO server instances.
 # devskim: ignore DS137138
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/utils.sh"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -68,14 +71,14 @@ if ! rpm -q go-fdo-client &>/dev/null; then
     exit 1
 fi
 
-if [[ -n "${PACKIT_COPR_RPMS}" ]]; then
-    log_info "Expected RPMs:  ${PACKIT_COPR_RPMS}"
+if [[ -n "${PACKIT_COPR_RPMS:-}" ]]; then
+    log_info "Expected RPMs:  ${PACKIT_COPR_RPMS:-}"
 fi
 CLIENT_PKG=$(rpm -q --qf "%{nvr}.%{arch}" go-fdo-client)
 log_info "Installed RPMs: ${CLIENT_PKG}"
 
 # Verify the installed package is from the PR build
-if [[ -n "${PACKIT_COPR_RPMS}" && ! "${PACKIT_COPR_RPMS}" =~ ${CLIENT_PKG} ]]; then
+if [[ -n "${PACKIT_COPR_RPMS:-}" && ! "${PACKIT_COPR_RPMS:-}" =~ ${CLIENT_PKG} ]]; then
     log_error "Package version does not appear to be from PR build"
     log_error "This suggests the PR artifact was replaced by a stable version"
     exit 1
@@ -116,6 +119,9 @@ log_info "go-fdo-client help menu is accessible"
 # Create test directory
 mkdir -p /tmp/fdo-test
 cd /tmp/fdo-test
+
+# Generate go-fdo-server certs
+source "/usr/libexec/go-fdo-server/generate-go-fdo-server-certs.sh"
 
 # Start FDO services
 log_info "Setting up FDO server environment..."
@@ -188,6 +194,12 @@ curl --fail --silent --show-error \
     exit 1
 }
 log_info "Owner redirect configured"
+
+# Add certificate to rendezvous
+log_info "Adding ca certificate to rendezvous..."
+crt="/etc/pki/go-fdo-server/device-ca-example.crt"
+add_device_ca_cert http://127.0.0.1:8041 "${crt}"
+log_info "Certificate added to rendezvous"
 
 # Test 1: Device Initialization (DI)
 # Using default ports: manufacturer=8038, rendezvous=8041, owner=8043

@@ -12,7 +12,7 @@
 %global debug_package %{nil}
 %endif
 
-Version:        0.0.2
+Version:        1.0.0
 %gometa -L -f
 
 Name:           go-fdo-client

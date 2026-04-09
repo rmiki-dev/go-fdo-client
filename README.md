@@ -74,8 +74,7 @@ Usage:
 Flags:
       --allow-credential-reuse     Allow credential reuse protocol during onboarding
       --cipher string              Name of cipher suite to use for encryption (see usage) (default "A128GCM")
-      --download string            A dir to download files into (FSIM disabled if empty)
-      --echo-commands              Echo all commands received to stdout (FSIM disabled if false)
+      --default-working-dir string Default working directory for all FSIMs (fdo.command, fdo.download, fdo.upload, fdo.wget) (default current working directory)
   -h, --help                       help for onboard
       --insecure-tls               Skip TLS certificate verification
       --kex string                 Name of cipher suite to use for key exchange (see usage)
@@ -84,8 +83,6 @@ Flags:
       --resale                     Perform resale
       --rv-only                    Perform TO1 then stop
       --to2-retry-delay duration   Delay between failed TO2 attempts when trying multiple Owner URLs from same RV directive (0=disabled)
-      --upload fsVar               List of dirs and files to upload files from, comma-separated and/or flag provided multiple times (FSIM disabled if empty) (default [])
-      --wget-dir string            A dir to wget files into (FSIM disabled if empty)
 
 Global Flags:
       --blob string   File path of device credential blob
@@ -128,6 +125,17 @@ The `onboard` command implements an infinite retry loop that continues attemptin
 - **Delays**: Applies delays between retry attempts as specified in RV directives (with ±25% jitter per FDO spec)
 - **TO2 Retry Delay**: Use `--to2-retry-delay` to add delay between multiple Owner URLs from the same directive (default: 0, disabled)
 
+## ServiceInfo Module Support
+
+The `onboard` command supports the following FDO Service Modules that can be invoked by the FDO Owner server during device onboarding:
+
+- **fdo.command**: The `fdo.command` module provides the functionality that allows the FDO Owner server to execute arbitrary shell commands on the device. Commands are executed from the default working directory.
+- **fdo.download**: The `fdo.download` module provides the functionality to download a binary file from the FDO Owner server to the device. Temporary files are created in the default working directory. Relative file paths from the Owner server are resolved using the default working directory as the base; absolute paths are used as-is.
+- **fdo.upload**: The `fdo.upload` module provides the functionality to transfer a binary file from the device to the FDO Owner server. Relative file paths are resolved from the default working directory; absolute paths are used as-is.
+- **fdo.wget**: The `fdo.wget` module provides the functionality to transfer a binary file from an HTTP server to the device via a network. Temporary files are created in the default working directory. Relative file paths from the Owner server are resolved using the default working directory as the base; absolute paths are used as-is.
+
+Please refer to the FSIM module definition [documentation](https://github.com/fido-alliance/fdo-sim) for further details. By default all Service Modules are available for use by the FDO Owner server during onboarding. Refer to the `onboard` command help text for additional service module configuration options. Refer to the FDO Owner server [documentation](https://github.com/fido-device-onboard/go-fdo-server) for server-side service module configuration details.
+
 ## Running the FDO Client using a Credential File Blob
 ### Remove Credential File
 Remove the credential file if it exists:
@@ -162,7 +170,7 @@ Run the FDO client in RV-only mode, which stops after TO1 is performed:
 ```
 
 ## Running the FDO Client with a TPM device
->NOTE: fdo\_client may require elevated privileges to use the TPM device. Please use 'sudo' to execute the fdo\_client.
+>NOTE: go-fdo-client may require elevated privileges to use the TPM device. Please use 'sudo' to execute go-fdo-client.
 
 ### Clear TPM NV Index to Delete Existing Credential
 

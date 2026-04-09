@@ -85,7 +85,7 @@ test_bypass_to1_coexistence() {
     # Configure RV info with bypass (multiple wrong owners) + normal TO1 (correct owner)
     # First directive: RV bypass with MULTIPLE wrong owner URLs -> TO2 will fail multiple times with default 0s delay
     # Second directive: Normal TO1 with correct RV -> TO2 will succeed
-    configure_rv_info '[
+    configure_rv_info http://127.0.0.1:8038 '[
         {"rv_bypass": true, "ip": "192.0.2.1", "device_port": "8041", "owner_port": "8043", "protocol": "http", "delay_seconds": 2},
         {"ip": "127.0.0.1", "device_port": "8041", "owner_port": "8041", "protocol": "http"}
     ]' || return 1
@@ -93,11 +93,16 @@ test_bypass_to1_coexistence() {
     # Configure owner redirect with MULTIPLE unreachable owners for bypass directive
     # This will cause TO2 to fail to first two, then succeed on third
     # Default TO2 retry delay is 0 (no delay between attempts)
-    configure_owner_redirect '[
+    configure_owner_redirect http://127.0.0.1:8043 '[
         {"ip": "192.0.2.1", "port": "8043", "protocol": "http"},
         {"ip": "192.0.2.2", "port": "8043", "protocol": "http"},
         {"dns":"owner","port":"8043","protocol":"http","ip":"127.0.0.1"}
     ]' || return 1
+
+    log_info "Adding certificate to rendezvous..."
+    crt="/etc/pki/go-fdo-server/device-ca-example.crt"
+    add_device_ca_cert http://127.0.0.1:8041 "${crt}"
+    log_info "Certificate added to rendezvous"
 
     device_init "bypass-coexistence-test" "${CRED_FILE}" || return 1
     transfer_voucher "${CRED_FILE}" "${VOUCHER_FILE}" || return 1
@@ -137,10 +142,15 @@ test_rvdelaysec_vs_default() {
     # First directive: TO1 fails with configured 5s delay
     # Second directive (LAST): TO1 fails, triggering default 120s delay (no delay_seconds on last directive)
     # Then user interrupts (Ctrl+C) after seeing default delay message
-    configure_rv_info '[
+    configure_rv_info http://127.0.0.1:8038 '[
         {"dev_only": true, "ip": "192.0.2.1", "device_port": "8041", "protocol": "http", "delay_seconds": 5},
         {"dev_only": true, "ip": "192.0.2.2", "device_port": "8041", "protocol": "http"}
     ]' || return 1
+
+    log_info "Adding certificate to rendezvous..."
+    crt="/etc/pki/go-fdo-server/device-ca-example.crt"
+    add_device_ca_cert http://127.0.0.1:8041 "${crt}"
+    log_info "Certificate added to rendezvous"
 
     device_init "delay-test" "${CRED_FILE}" || return 1
 
@@ -209,17 +219,22 @@ test_to2_retry_delay_configured() {
     cleanup_test_files "${CRED_FILE}" "${VOUCHER_FILE}"
 
     # Configure single RV directive with working TO1
-    configure_rv_info '[
+    configure_rv_info http://127.0.0.1:8038 '[
         {"ip": "127.0.0.1", "device_port": "8041", "owner_port": "8041", "protocol": "http"}
     ]' || return 1
 
     # Configure owner redirect with multiple unreachable owners + final working owner
     # This will test TO2 retry delay between owner attempts
-    configure_owner_redirect '[
+    configure_owner_redirect http://127.0.0.1:8043 '[
         {"ip": "192.0.2.1", "port": "8043", "protocol": "http"},
         {"ip": "192.0.2.2", "port": "8043", "protocol": "http"},
         {"dns": "owner", "port": "8043", "protocol": "http", "ip": "127.0.0.1"}
     ]' || return 1
+
+    log_info "Adding certificate to rendezvous..."
+    crt="/etc/pki/go-fdo-server/device-ca-example.crt"
+    add_device_ca_cert http://127.0.0.1:8041 "${crt}"
+    log_info "Certificate added to rendezvous"
 
     device_init "to2-delay-test" "${CRED_FILE}" || return 1
     transfer_voucher "${CRED_FILE}" "${VOUCHER_FILE}" || return 1
@@ -271,6 +286,10 @@ run_test() {
     set_hostname owner 127.0.0.1
 
     verify_fdo_packages || exit 1
+
+    # Generate go-fdo-server certs
+    source "/usr/libexec/go-fdo-server/generate-go-fdo-server-certs.sh"
+
     start_fdo_services || exit 1
 
     # Run all test scenarios (continue even if one fails to see all results)
